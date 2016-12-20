@@ -1,0 +1,23 @@
+Microsoft Visual Studio Solution File, Format Version 11.00
+# Visual Studio 2008
+
+Project("{2FB101D3-DB51-ABB0-16AF-9A933D922322}") = "Food Finder2", "Assembly-CSharp.csproj", "{391B8550-2DF7-125A-FC2E-03768611C675}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{391B8550-2DF7-125A-FC2E-03768611C675}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{391B8550-2DF7-125A-FC2E-03768611C675}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{391B8550-2DF7-125A-FC2E-03768611C675}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{391B8550-2DF7-125A-FC2E-03768611C675}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(MonoDevelopProperties) = preSolution
+		StartupItem = Assembly-CSharp.csproj
+	EndGlobalSection
+EndGlobal
