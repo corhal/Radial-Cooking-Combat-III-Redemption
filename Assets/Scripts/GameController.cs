@@ -10,6 +10,9 @@ public class GameController : MonoBehaviour {
 	public GameObject FlyingStarsPrefab;
 	public List<int> AllowedIngredients;
 
+	public Dish CurrentDish;
+	public Dish[] Dishes;
+
 	public GameObject RedTint;
 
 	public int[] StarGoals;
@@ -77,6 +80,7 @@ public class GameController : MonoBehaviour {
 	Storage storage;
 
 	bool lastIngredient;
+	bool switchDish;
 
 	public static GameController instance;
 
@@ -103,9 +107,9 @@ public class GameController : MonoBehaviour {
 		Lerper = GetComponent<LerpScore> ();
 		mouseCollider = GetComponent<Collider2D> ();
 		helperAnim = HelperImage.GetComponent<Animation> ();
-		//IngredientsCounts = new Dictionary<int, int> ();	
 		storage = GameObject.FindGameObjectWithTag ("Player").GetComponent<Storage> ();
 		Dish.OnDishReady += Dish_OnDishReady;
+		//Dish.OnDishSwitch += Dish_OnDishSwitch;
 		Ingredient.OnIngredientDestroyed += Ingredient_OnIngredientDestroyed;
 		Dish.OnDishInitialized += Dish_OnDishInitialized;
 		Flyer.OnFlyerArrived += Flyer_OnFlyerArrived;
@@ -125,13 +129,12 @@ public class GameController : MonoBehaviour {
 		Destroy (myObj);
 	}
 
-	public GameObject GhostDishPrefab;
 	void Dish_OnDishInitialized (Dish dish)	{		
 		ResetDish ();
 	}
 
 	void ResetDish() {		
-		AllowedIngredients = new List<int> (Dish.instance.Ingredients);
+		AllowedIngredients = new List<int> (CurrentDish.Ingredients);
 
 		List<Ingredient> ingredientsToRemove = new List<Ingredient> (spawnedIngredients);
 
@@ -148,31 +151,27 @@ public class GameController : MonoBehaviour {
 
 			AllowedIngredients.Add (ingredientToAdd);
 		}
-
-		//SpawnTime = 1.75f;
-		//timer = 0.0f;
 	}
 
-	public GameObject[] preGhostDishes;
 	void Dish_OnDishReady (Dish dish) {
-		if (dishCount + 1 < preGhostDishes.Length && preGhostDishes[dishCount + 1] != null) {
-			preGhostDishes [dishCount + 1].SetActive (false);
-		}
-		GameObject ghostDish = Instantiate (GhostDishPrefab, DishSpritesSpawns [dishCount].transform.position, DishSpritesSpawns [dishCount].transform.rotation) as GameObject;
-		ghostDish.GetComponentInChildren<SpriteRenderer> ().sprite = dish.DishSprite.sprite;
-		ghostDish.GetComponentInChildren<SpriteRenderer> ().color = new Color (1.0f, 1.0f, 1.0f, 1.0f);
-		lastIngredient = true;
-		Debug.Log (lastIngredient);
+		SpawnTime = 0.0f;
+		lastIngredient = true; // ?
 	}
 
-	void Start() {	
+	void Start() {			
 		StarGoals = new int[Player.instance.MyMission.StarGoals.Length];
 		Player.instance.MyMission.StarGoals.CopyTo (StarGoals, 0);
 		Player.instance.StarCount = 0;
-		dishCount = 0;	
 		DishCountLabel.text = "Dish: " + dishCount + "/3";
-		GameObject newDish = Instantiate (DishPrefab, DishSpawn.transform.position, DishSpawn.transform.rotation) as GameObject;
-		newDish.GetComponent<Dish> ().minIngredients = dishCount + 1;
+		Dishes = new Dish[3];
+		for (int i = 0; i < Dishes.Length; i++) {
+			GameObject newDish = Instantiate (DishPrefab, DishSpawn.transform.position, DishSpawn.transform.rotation) as GameObject;
+			newDish.GetComponent<Dish> ().minIngredients = i;
+			Dishes [i] = newDish.GetComponent<Dish> ();
+		}
+		CurrentDish = Dishes [0];
+		CurrentDish.SetActive (true);
+		CurrentDish.IngredientsAnimation.gameObject.SetActive (false);
 		DishCountLabel.text = "Dish: " + dishCount + "/3";
 
 		for (int i = 0; i < StarImages.Length; i++) {	
@@ -183,20 +182,16 @@ public class GameController : MonoBehaviour {
 
 	public void FirstStep(Ingredient ingredient) {		
 		AddScore (ingredient.CurrentScore);
-		SpawnTime = Random.Range (Player.instance.MyMission.MinSpawnTimer + 0.5f, Player.instance.MyMission.MaxSpawnTimer + 0.5f); //3.0f;
-		ingredient.MaxScore = Random.Range (Player.instance.MyMission.MinPointsPerAction, Player.instance.MyMission.MaxPointPerAction);// SpawnTime * 10.0f;
+		SpawnTime = Random.Range (Player.instance.MyMission.MinSpawnTimer + 0.5f, Player.instance.MyMission.MaxSpawnTimer + 0.5f); 
+		ingredient.MaxScore = Random.Range (Player.instance.MyMission.MinPointsPerAction, Player.instance.MyMission.MaxPointPerAction);
 		ingredient.CurrentScore = ingredient.MaxScore;
 		timer = 0.0f;
 		ingredient.mySlider.gameObject.SetActive (false);
-		//ingredient.mySprite.gameObject.transform.position = LeftSpawn.position;
-		//ingredient.mySlider.maxValue = SpawnTime;
-		//ingredient.Fill.color = Color.blue;
 		int count = (Player.instance.MyMission.MyVariation != Variation.sixChoices && Player.instance.MyMission.MyVariation != Variation.sixChoicesRotating) ? 1 : 2;
 		for (int i = 0; i < count; i++) {
 			ingredient.ItemsContainers[i].SetActive (true);
 		}
 		foreach (var slider in ingredient.ItemSliders) {
-			//slider.gameObject.SetActive (true);
 			slider.maxValue = SpawnTime;
 		}
 
@@ -235,10 +230,9 @@ public class GameController : MonoBehaviour {
 		NextComplex = false;
 		AddScore (ingredient.CurrentScore);
 		SpawnTime = Random.Range (Player.instance.MyMission.MinSpawnTimer + 0.5f, Player.instance.MyMission.MaxSpawnTimer + 0.5f);
-		ingredient.MaxScore = Random.Range (Player.instance.MyMission.MinPointsPerAction, Player.instance.MyMission.MaxPointPerAction);// SpawnTime * 2 * 10.0f;
+		ingredient.MaxScore = Random.Range (Player.instance.MyMission.MinPointsPerAction, Player.instance.MyMission.MaxPointPerAction);
 		ingredient.CurrentScore = 0.0f;
 		timer = 0.0f;
-		//ingredient.mySlider.gameObject.SetActive (false);
 		ingredient.mySlider.maxValue = SpawnTime;
 		ingredient.Fill.color = Color.green;
 		string animationName = UppercaseFirst (ingredient.Interaction.ToString()) + "Help";
@@ -265,19 +259,19 @@ public class GameController : MonoBehaviour {
 
 		ingredientsToMove.Add (ingredient);
 		initialPositions.Add (ingredient.transform.position);
-		destinationPositions.Add (Dish.instance.IngredientSprites [Dish.instance.Ingredients.IndexOf (ingredient.GetComponent<Ingredient> ().IngredientType)].transform.position);
+		destinationPositions.Add (CurrentDish.IngredientSprites [CurrentDish.Ingredients.IndexOf (ingredient.GetComponent<Ingredient> ().IngredientType)].transform.position);
 		interpolators.Add (0.0f);
 	}
 
 	void ArriveIngredient(GameObject ingredient) {		
-		Dish.instance.IngredientSprites [Dish.instance.Ingredients.IndexOf (ingredient.GetComponent<Ingredient> ().IngredientType)].gameObject.GetComponent<Animation> ().Play ();
-		Dish.instance.AddCorrect (ingredient.GetComponent<Ingredient>());
+		CurrentDish.IngredientSprites [CurrentDish.Ingredients.IndexOf (ingredient.GetComponent<Ingredient> ().IngredientType)].gameObject.GetComponent<Animation> ().Play ();
+		CurrentDish.AddCorrect (ingredient.GetComponent<Ingredient>());
 
-		if (dishCount == 1 && Dish.instance.collectedIngredients == 1) {			
+		if (CurrentDish.DishIndex == 1 && CurrentDish.collectedIngredients == 1) {			
 			NextComplex = true;
 		}
 
-		if (dishCount == 2 && Dish.instance.collectedIngredients == 2) {
+		if (CurrentDish.DishIndex == 2 && CurrentDish.collectedIngredients == 2) {
 			NextComplex = true;
 		}
 
@@ -286,24 +280,34 @@ public class GameController : MonoBehaviour {
 		initialPositions.RemoveAt (index);
 		destinationPositions.RemoveAt (index);
 		interpolators.RemoveAt (index);
-		if (Dish.instance.IngredientsCounts.ContainsKey(ingredient.GetComponent<Ingredient>().IngredientType) && Dish.instance.IngredientsCounts[ingredient.GetComponent<Ingredient>().IngredientType] == Dish.instance.IngredientConditionsDict[ingredient.GetComponent<Ingredient>().IngredientType]) {
+		if (CurrentDish.IngredientsCounts.ContainsKey(ingredient.GetComponent<Ingredient>().IngredientType) && CurrentDish.IngredientsCounts[ingredient.GetComponent<Ingredient>().IngredientType] == CurrentDish.IngredientConditionsDict[ingredient.GetComponent<Ingredient>().IngredientType]) {
 			AllowedIngredients.Remove (ingredient.GetComponent<Ingredient>().IngredientType);
 		}
 		Destroy (ingredient);
 
+		if (Player.instance.MyMission.MyVariation == Variation.switcheroo && CurrentDish.Ingredients.Count != 0) {
+			StartCoroutine (SwitchDish());
+		}
 	}
+
+	IEnumerator SwitchDish() {	
+		yield return new WaitForSeconds(0.3f);	
+
+		SpawnTime = 0.0f;
+		switchDish = true;
+	}
+
 
 	void UseCombo() {
 		ComboLabel.text = "x0";
 		CorrectCount = 0;
 		ComboCount = 1;
-		//NextComplex = false;
 	}
 
 	public void AddIncorrect(Ingredient ingredient) {
 		HelperLabel.gameObject.SetActive (false);
 		IsPaused = false;
-		Dish.instance.AddIncorrect ();
+		CurrentDish.AddIncorrect ();
 		RedTint.GetComponent<Animation> ().Play();
 		Mistakes--;
 		Player.instance.HasWon = false;
@@ -330,92 +334,108 @@ public class GameController : MonoBehaviour {
 		}
 	}
 
-	void Ingredient_OnIngredientDestroyed (Ingredient ingredient, bool terminated) {		
-		if (IsSecond) {			
-			HelperImage.GetComponent<Animation> ().Stop();
-			HelperLabel.gameObject.SetActive (false);
-			Advisor.gameObject.SetActive (false);
-			IsSecond = false;
-		} 
-		if (IsFirst) {			
+	void ShowTutorial() {
+		if (IsSecond || IsFirst) {			
 			HelperImage.GetComponent<Animation> ().Stop();
 			HelperLabel.gameObject.SetActive (false);
 			Advisor.gameObject.SetActive (false);
 			IsFirst = false;
-			IsSecond = true;
+			IsSecond = !IsSecond;
 		} 
-		if ((!terminated && !Dish.instance.Ingredients.Contains(ingredient.IngredientType) 
-			|| (Dish.instance.Ingredients.Contains(ingredient.IngredientType) 
-				&& Dish.instance.IngredientsCounts[ingredient.IngredientType] == Dish.instance.IngredientConditionsDict[ingredient.IngredientType]) )
-			|| (terminated && Dish.instance.Ingredients.Contains(ingredient.IngredientType))) {
-			AddIncorrect(ingredient);
-			spawnedIngredients.Remove (ingredient);
-			if (spawnedIngredients.Count == 0) {
-				SpawnTime = 0.1f;
-				timer = 0.0f;
-			}
-		} else if (!terminated && Dish.instance.Ingredients.Contains(ingredient.IngredientType)) {	
-			if (ingredient.Complex && ingredient.Action) {
-				ingredient.BonusGameLabel.gameObject.SetActive (false);
-				GameObject bonusScoreObj = Instantiate (BonusScorePrefab, ingredient.AdditionalScoreLabel.transform.position, BonusScorePrefab.transform.rotation) as GameObject;
-				Flyer flyer = bonusScoreObj.GetComponent<Flyer> ();
-				flyer.DestinationPosition = ScoreLabel.gameObject.transform.position;
-				flyer.SavedScore = 0; // ingredient.CurrentScore;
-				flyer.TapCount = ingredient.comboCount;
-			} else {
-				//AddScore (ingredient.CurrentScore);
-			}
-			MoveIngredient (ingredient.gameObject);
-			GameObject newStars = Instantiate (FlyingStarsPrefab, ingredient.transform.position, ingredient.transform.rotation) as GameObject;
-			newStars.GetComponent<Flyer> ().ShowScore = true;
-			newStars.GetComponent<Flyer> ().DestinationPosition = Lerper.StarTarget.transform.position;
-			newStars.GetComponent<Flyer> ().SavedScore = ingredient.CurrentScore;
-			CorrectCount++;
-			//ComboCount++;
-			ingredient.mySlider.gameObject.SetActive (false);
+	}
 
-			spawnedIngredients.Remove (ingredient);
-			if (spawnedIngredients.Count == 0) {
-				SpawnTime = 0.65f;
-				timer = 0.0f;
-			}
-		} else {
-			Destroy(ingredient.gameObject);
-			if (ingredient.Clicked) {
-				//AddScore (ingredient.CurrentScore );
-				GameObject newStars = Instantiate (FlyingStarsPrefab, ingredient.transform.position, ingredient.transform.rotation) as GameObject;
-				newStars.GetComponent<Flyer> ().ShowScore = true;
-				newStars.GetComponent<Flyer> ().DestinationPosition = Lerper.StarTarget.transform.position;
-				newStars.GetComponent<Flyer> ().SavedScore = ingredient.CurrentScore;
-				CorrectCount++;
-				//ComboCount++;
-			}
-			spawnedIngredients.Remove (ingredient);
-			if (spawnedIngredients.Count == 0) {
-				SpawnTime = 0.1f;
-				timer = 0.0f;
-			}
+	void RemoveIngredient(Ingredient ingredient, bool longDelay) {
+		float delay = (longDelay) ? 0.5f : 0.1f;
+		delay = (lastIngredient) ? 0.1f : delay;
+		spawnedIngredients.Remove (ingredient);
+		if (spawnedIngredients.Count == 0) {
+			SpawnTime = delay;
+			timer = 0.0f;
 		}
 	}
 
+	void SendScore(Ingredient ingredient) {
+		GameObject newStars = Instantiate (FlyingStarsPrefab, ingredient.transform.position, ingredient.transform.rotation) as GameObject;
+		newStars.GetComponent<Flyer> ().ShowScore = true;
+		newStars.GetComponent<Flyer> ().DestinationPosition = Lerper.StarTarget.transform.position;
+		newStars.GetComponent<Flyer> ().SavedScore = ingredient.CurrentScore;
+		CorrectCount++;
+	}
+
+	void Ingredient_OnIngredientDestroyed (Ingredient ingredient, bool terminated) {		
+		ShowTutorial ();
+		bool longDelay = false;
+		if ((!terminated && !CurrentDish.Ingredients.Contains(ingredient.IngredientType) // Не таймаут, кликнули по неправильному ингредиенту или таймаут и не кликнули по правильному
+			|| (CurrentDish.Ingredients.Contains(ingredient.IngredientType) 
+				&& CurrentDish.IngredientsCounts[ingredient.IngredientType] == CurrentDish.IngredientConditionsDict[ingredient.IngredientType]) )
+			|| (terminated && CurrentDish.Ingredients.Contains(ingredient.IngredientType))) {
+			AddIncorrect(ingredient);
+			longDelay = false;
+		} else if (!terminated && CurrentDish.Ingredients.Contains(ingredient.IngredientType)) {	// Не таймаут, кликнули по правильному
+			if (ingredient.Complex && ingredient.Action) {
+				ingredient.BonusGameLabel.gameObject.SetActive (false);
+				GameObject bonusScoreObj = Instantiate (BonusScorePrefab, ingredient.AdditionalScoreLabel.transform.position, 
+					BonusScorePrefab.transform.rotation) as GameObject;
+				Flyer flyer = bonusScoreObj.GetComponent<Flyer> ();
+				flyer.DestinationPosition = ScoreLabel.gameObject.transform.position;
+				flyer.SavedScore = 0; 
+				flyer.TapCount = ingredient.comboCount;
+			}
+			MoveIngredient (ingredient.gameObject);
+			SendScore (ingredient);
+			ingredient.mySlider.gameObject.SetActive (false);
+			longDelay = true;
+
+		} else { // Не могу понять, что это - скипнули неверный ингредиент?..
+			Destroy(ingredient.gameObject);
+			if (ingredient.Clicked) {
+				SendScore (ingredient);
+			}
+		}
+		RemoveIngredient (ingredient, longDelay);
+	}
+
 	void Update() {		
+		if (switchDish && !lastIngredient) {
+			switchDish = false;
+			CurrentDish.SetActive (false);
+			if (CurrentDish.DishIndex == 2) {				
+				CurrentDish = Dishes [0];
+				if (CurrentDish.IsReady) {
+					CurrentDish = Dishes [1];
+				}
+				if (CurrentDish.IsReady) {
+					CurrentDish = Dishes [2];
+				}
+			} else {
+				CurrentDish = Dishes [CurrentDish.DishIndex + 1];
+			}
+			CurrentDish.SetActive (true);
+			ResetDish ();
+		}
 		if (lastIngredient) {			
-			Destroy (Dish.instance.gameObject);
 			GameObject blast = Instantiate (BlastParticlesPrefab, DishSpawn.transform.position, DishSpawn.transform.rotation) as GameObject;
 			blast.GetComponentInChildren<ParticleSystem> ().startColor = Color.blue;
 			lastIngredient = false;
 			dishCount++;
 			if (dishCount < 3) {
-				GameObject newDish = Instantiate (DishPrefab, DishSpawn.transform.position, DishSpawn.transform.rotation) as GameObject;
-				newDish.GetComponent<Dish> ().minIngredients = dishCount + 1;
-				DishCountLabel.text = "Dish: " + dishCount + "/3";
+				CurrentDish = Dishes [dishCount];
+				CurrentDish.SetActive (true);				
+				Dishes [dishCount - 1].SetActive (false);								
+			} else {
+				CurrentDish.SetActive (false);
 			}
-		}
-		if (dishCount >= 3) {
-			DishCountLabel.text = "You won!";
-			Player.instance.StarCount = starCount;
-			Player.instance.HasWon = true;
-			readyToEnd = true;			
+			ResetDish ();
+			if (Player.instance.MyMission.MyVariation == Variation.memory) {
+				SpawnTime = 7f;
+			}
+
+			if (dishCount >= 3) {
+				DishCountLabel.text = "You won!";
+				Player.instance.StarCount = starCount;
+				Player.instance.HasWon = true;
+				readyToEnd = true;			
+			}
 		}
 		if (readyToEnd) {
 			EndTimer -= Time.deltaTime;
@@ -434,10 +454,8 @@ public class GameController : MonoBehaviour {
 				}
 			}
 			if (timer >= SpawnTime) {
-				//timer = 0.0f;
 				for (int i = 0; i < spawnedIngredients.Count; i++) {
 					if (spawnedIngredients [i].Active) {
-						//spawnedIngredients [i].Active = false;
 						if (!spawnedIngredients [i].Action && !IsPaused) {							
 							spawnedIngredients [i].DestroyIngredient (true);
 						} else if (spawnedIngredients [i].Action && IsPaused) {
@@ -449,7 +467,7 @@ public class GameController : MonoBehaviour {
 					}
 				}
 				spawnedIngredients.Clear ();
-				if (Dish.instance.Ingredients.Count > 0 && timer >= SpawnTime + 0.6f) {
+				if (CurrentDish.Ingredients.Count > 0 && timer >= SpawnTime + 0.6f) { // 0.6 - это задержка между уничтожением и спавном!
 					timer = 0.0f;
 					SpawnIngredient ();
 				}
@@ -504,6 +522,7 @@ public class GameController : MonoBehaviour {
 
 	public void Restart() {
 		Dish.OnDishReady -= Dish_OnDishReady;
+		//Dish.OnDishSwitch -= Dish_OnDishSwitch;
 		Ingredient.OnIngredientDestroyed -= Ingredient_OnIngredientDestroyed;
 		Dish.OnDishInitialized -= Dish_OnDishInitialized;
 		Flyer.OnFlyerArrived -= Flyer_OnFlyerArrived;

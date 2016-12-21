@@ -35,5 +35,6 @@ public enum Variation {
 	sixChoices,
 	rotatingHints,
 	sixChoicesRotating,
-	shadowplay
+	shadowplay,
+	switcheroo
 }
