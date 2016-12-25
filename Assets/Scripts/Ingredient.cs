@@ -8,6 +8,9 @@ public class Ingredient : MonoBehaviour {
 	public int HP;
 	public bool Complex;
 
+	public string Side;
+
+	public bool Focused;
 	public bool Action;
 	public bool Item;
 
@@ -47,6 +50,9 @@ public class Ingredient : MonoBehaviour {
 	public float RotationSpeed;
 	public bool ShouldRotate;
 
+	float lifeTime;
+	float timer;
+
 	public bool Clicked;
 
 	void Awake() {		
@@ -60,39 +66,41 @@ public class Ingredient : MonoBehaviour {
 		MaxScore = Random.Range (Player.instance.MyMission.MinPointsPerAction, Player.instance.MyMission.MaxPointPerAction);
 		CurrentScore = MaxScore;
 		Items = new List<int> ();
-		if (GameController.instance.dishCount == 0 && GameController.instance.IsFirst == true) {
+		if (GameController.instance.dishCount == 0 && (GameController.instance.IsFirst || GameController.instance.IsSecond)) {
 			GameController.instance.SpawnTime = 20.0f;
 			mySlider.maxValue = GameController.instance.SpawnTime;
 			GameController.instance.HelperLabel.gameObject.SetActive (true);
-			GameController.instance.Advisor.text = "Tap matching ingredients";
-			GameController.instance.Advisor.gameObject.SetActive (true);
 			GameController.instance.HelperLabel.text = "";
-			GameController.instance.PlayAnimation ("FirstHelp");
+			GameController.instance.Advisor.gameObject.SetActive (true);
+			string advisorText = "";
+			string animationName = "";
+
 			int index = Random.Range (0, GameController.instance.CurrentDish.Ingredients.Count);
-			IngredientType = GameController.instance.CurrentDish.Ingredients[index];
-			mySprite.sprite = storage.IngredientSprites [IngredientType];
-		} else if (GameController.instance.dishCount == 0 && GameController.instance.IsSecond == true) {
-			GameController.instance.SpawnTime = 20.0f;
-			mySlider.maxValue = GameController.instance.SpawnTime;
-			GameController.instance.HelperLabel.gameObject.SetActive (true);
-			GameController.instance.HelperLabel.text = "";
-			GameController.instance.Advisor.text = "Discard wrong ingredients";
-			GameController.instance.Advisor.gameObject.SetActive (true);
-			GameController.instance.Arrow.sprite = storage.ArrowSprites [1];
-			GameController.instance.PlayAnimation ("SecondHelp");
-			int index = Random.Range (0, GameController.instance.AllowedIngredients.Count);
-			while (GameController.instance.CurrentDish.Ingredients.Contains(GameController.instance.AllowedIngredients[index])) {
-				index = Random.Range (0, GameController.instance.AllowedIngredients.Count);
+
+			if (GameController.instance.IsFirst) {
+				advisorText = "Tap matching ingredients";
+				animationName = "FirstHelp";
+			} else if (GameController.instance.IsSecond) {
+				advisorText = "Discard wrong ingredients";
+				animationName = "SecondHelp";
+				while (GameController.instance.CurrentDish.Ingredients.Contains(GameController.instance.AllowedIngredients[index])) {
+					index = Random.Range (0, GameController.instance.AllowedIngredients.Count);
+				}
+				GameController.instance.Arrow.sprite = storage.ArrowSprites [1];
 			}
-			IngredientType = GameController.instance.AllowedIngredients [index];
+			IngredientType = GameController.instance.AllowedIngredients[index];
 			mySprite.sprite = storage.IngredientSprites [IngredientType];
-		} else if (GameController.instance.NextComplex) {
+
+			GameController.instance.Advisor.text = advisorText;
+			GameController.instance.PlayAnimation (animationName);
+
+		} else if (Complex && Action) {
 			int index = Random.Range (0, GameController.instance.CurrentDish.Ingredients.Count);
 			IngredientType = GameController.instance.CurrentDish.Ingredients[index];
 			mySprite.sprite = storage.IngredientSprites [IngredientType];
 
-			Complex = true;
-			Action = true;
+			//Complex = true;
+			//Action = true;
 			float rand = Random.Range (0.0f, 1.0f);
 			if (rand <= 0.25f) {
 				Interaction = Minigame.Slice;
@@ -103,18 +111,20 @@ public class Ingredient : MonoBehaviour {
 			} else {
 				Interaction = Minigame.Targets;
 			}
-		} else if (GameController.instance.CurrentDish.IngredientItems.ContainsKey(IngredientType) && GameController.instance.CurrentDish.IngredientItems[IngredientType] != -1) {
-			Complex = true;
-			Item = true;
-
+		} else if (Complex && Item) {
 			int targetItem = GameController.instance.CurrentDish.IngredientItems [IngredientType];
 			bool hasRelevant = false;
-			int count = (Player.instance.MyMission.MyVariation != Variation.sixChoices && Player.instance.MyMission.MyVariation != Variation.sixChoicesRotating) ? 3 : 6;
+			bool hasGold = false;
+			int count = (!Player.instance.MyMission.Variations.Contains(Variation.revolver)) ? 3 : 6;
 			float probability = 1.0f / (float) count;
+			float goldProbability = 2.0f / (float) count;
 			for (int i = 0; i < count; i++) {
 				int uniqueItem = Random.Range(0, storage.ItemSprites.Length);
 				if (Random.Range(0.0f, 1.0f) <= probability) {
 					uniqueItem = targetItem;
+				}
+				if (uniqueItem != targetItem && Player.instance.MyMission.Variations.Contains(Variation.goldhunt) && Random.Range(0.0f, 1.0f) <= probability) {
+					uniqueItem = -1;
 				}
 				while (Items.Contains(uniqueItem)) {
 					uniqueItem = Random.Range(0, storage.ItemSprites.Length);
@@ -126,15 +136,18 @@ public class Ingredient : MonoBehaviour {
 					hasRelevant = true;
 				}
 				Items.Add (uniqueItem);
-				ItemSprites [i].sprite = storage.ItemSprites [uniqueItem];
+				if (uniqueItem == -1) {
+					ItemSprites [i].sprite = storage.MoneySprite;
+					ItemSprites [i].gameObject.transform.localScale = Vector3.one;
+				} else {
+					ItemSprites [i].sprite = storage.ItemSprites [uniqueItem];
+				}
 			}
 		}
-		/*if (Player.instance.MyMission.MyVariation == Variation.shadowplay) {
-			mySprite.color = Color.black;
-			foreach (var itemSprite in ItemSprites) {
-				itemSprite.color = Color.black;
-			}
-		}*/
+
+		if (Player.instance.MyMission.Variations.Contains(Variation.doubleTrouble)) {
+			transform.localScale *= 0.8f;
+		}
 	}
 
 	public void DestroyIngredient(bool terminated) {
@@ -152,6 +165,10 @@ public class Ingredient : MonoBehaviour {
 	}
 
 	void OnMouseDown() {
+		if (GameController.instance.FullPause && !Focused) {
+			return;
+		}
+		Focused = true;
 		if (GetComponentInChildren<Button> () != null) {
 			GetComponentInChildren<Button> ().gameObject.SetActive (false);	
 		}
@@ -206,6 +223,15 @@ public class Ingredient : MonoBehaviour {
 	public void ClickHelper(ItemHelper helper) {
 		if (ItemSprites.Contains(helper.gameObject.GetComponent<SpriteRenderer>())) {
 			int index = ItemSprites.IndexOf(helper.gameObject.GetComponent<SpriteRenderer> ());
+
+			if (Player.instance.MyMission.Variations.Contains(Variation.goldhunt) && helper.gameObject.GetComponent<SpriteRenderer>().sprite == storage.MoneySprite) {
+				GameController.instance.GoldParticles.gameObject.transform.position = helper.gameObject.transform.position;
+				Destroy (helper.gameObject);
+				Destroy (ItemSliders [index].gameObject);
+				GameController.instance.GoldParticles.Stop ();
+				GameController.instance.GoldParticles.Play ();
+				return;
+			}
 			int item = Items [index];
 			int targetItem = GameController.instance.CurrentDish.IngredientItems [IngredientType];
 			GameController.instance.IsPaused = false;
@@ -221,10 +247,13 @@ public class Ingredient : MonoBehaviour {
 				}
 				GameController.instance.AddIncorrect(this);
 			}
-		}
+		} 
 	}
 
 	void Update() {
+		if (GameController.instance.FullPause && !Focused) {
+			return;
+		}
 		if (Interaction == Minigame.Targets) {			
 			if (TargetsCount <= 0) {
 				GameController.instance.timer = GameController.instance.SpawnTime;
@@ -238,6 +267,35 @@ public class Ingredient : MonoBehaviour {
 				ItemSprites [i].transform.Rotate (ItemSprites [i].transform.forward, -RotationSpeed * Time.deltaTime);
 				ItemSliders [i].transform.Rotate (ItemSliders [i].transform.forward, -RotationSpeed * Time.deltaTime);
 			}
+		}
+
+		timer += Time.deltaTime;
+
+		mySlider.value = timer;
+		foreach (var slider in ItemSliders) {
+			slider.value = timer;
+		}
+
+		if (timer >= lifeTime) {			
+			if (Active) {
+				if (!Action && !GameController.instance.IsPaused) {							
+					DestroyIngredient (true);
+				} else if (Action && GameController.instance.IsPaused) {
+					DestroyIngredient (false);
+				} else {
+					DestroyIngredient (true);
+				}
+			}
+		}
+	}
+
+	public void SetLifeTime(float time) {
+		lifeTime = time;
+		timer = 0.0f;
+		mySlider.maxValue = lifeTime;
+		mySlider.value = timer;
+		foreach (var slider in ItemSliders) {
+			slider.maxValue = lifeTime;
 		}
 	}
 

@@ -51,6 +51,8 @@ public class Dish : MonoBehaviour {
 	/*public delegate void DishSwitchEventHandler (Dish dish);
 	public static event DishSwitchEventHandler OnDishSwitch;*/
 
+	public List<int> UnallowedIngredients;
+
 	public void Animate() {
 		MyAnimation.Play ();
 	}
@@ -82,10 +84,13 @@ public class Dish : MonoBehaviour {
 		totalIngredients = 0;
 		List<Sprite> AllowedIngredientSprites = new List<Sprite> (storage.IngredientSmallSprites);
 		List<Sprite> UnallowedIngredientSprites = new List<Sprite> ();
-		if (Player.instance.MyMission.MyVariation == Variation.shadowplay) {
+		if (Player.instance.MyMission.Variations.Contains(Variation.shadowplay)) {
 			UnallowedIngredientSprites.Add (AllowedIngredientSprites[9]);
 			UnallowedIngredientSprites.Add (AllowedIngredientSprites[7]);
 			UnallowedIngredientSprites.Add (AllowedIngredientSprites[2]);
+			UnallowedIngredients.Add (9);
+			UnallowedIngredients.Add (7);
+			UnallowedIngredients.Add (2);
 		}
 		for (int i = 0; i < length; i++) {
 			int uniqueIngredient = Random.Range(0, AllowedIngredientSprites.Count);
@@ -127,14 +132,6 @@ public class Dish : MonoBehaviour {
 			totalIngredients += condition.Value;
 		}
 		RefreshLabels ();
-		if (Player.instance.MyMission.MyVariation == Variation.memory) {
-			initTimer = 6.0f;
-			GameController.instance.timer = 0.0f;
-			GameController.instance.SpawnTime = initTimer;
-		} else {
-			GameController.instance.timer = 0.0f;
-			GameController.instance.SpawnTime = 1.75f;
-		}
 
 		startInitialize = true;
 
@@ -159,7 +156,7 @@ public class Dish : MonoBehaviour {
 			GameController.instance.dishCount = 0;
 		}
 
-		if (Player.instance.MyMission.MyVariation == Variation.shadowplay) {
+		if (Player.instance.MyMission.Variations.Contains(Variation.shadowplay)) {
 			for (int i = 0; i < IngredientSprites.Count; i++) {
 				IngredientSprites[i].color = Color.black;
 				HelperSprites[i].color = Color.black;
@@ -178,8 +175,8 @@ public class Dish : MonoBehaviour {
 	Vector2 DestinationCookPosition;
 	float interpolator;
 	bool moveCook;
-	bool startInitialize;
-	float initTimer;
+	public bool startInitialize;
+	public float initTimer;
 
 	public void SetActive(bool active) {
 		IsActive = active;
@@ -241,7 +238,7 @@ public class Dish : MonoBehaviour {
 			}
 			if (initTimer <= 0.0f) {
 				GameController.instance.MemoryTimerLabel.gameObject.SetActive (false);
-				if (Player.instance.MyMission.MyVariation == Variation.memory) {
+				if (Player.instance.MyMission.Variations.Contains(Variation.memory)) {
 					IngredientsAnimation.gameObject.SetActive (false);
 				}
 				startInitialize = false;
@@ -268,7 +265,7 @@ public class Dish : MonoBehaviour {
 				}
 			}
 
-			if (Player.instance.MyMission.MyVariation == Variation.switcheroo && Ingredients.Count > 0) {
+			if (Player.instance.MyMission.Variations.Contains(Variation.switcheroo) && Ingredients.Count > 0) {
 				// GameController.instance.SwitchDish ();
 			}
 		}
