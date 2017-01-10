@@ -95,27 +95,30 @@ public class Ingredient : MonoBehaviour {
 			GameController.instance.PlayAnimation (animationName);
 
 		} else if (Complex && Action) {
-			int index = Random.Range (0, GameController.instance.CurrentDish.Ingredients.Count);
-			IngredientType = GameController.instance.CurrentDish.Ingredients[index];
-			mySprite.sprite = storage.IngredientSprites [IngredientType];
+			//int index = Random.Range (0, GameController.instance.CurrentDish.Ingredients.Count);
+			//IngredientType = GameController.instance.CurrentDish.Ingredients[index];
+			//mySprite.sprite = storage.IngredientSprites [IngredientType];
 
 			//Complex = true;
 			//Action = true;
-			float rand = Random.Range (0.0f, 1.0f);
-			if (rand <= 0.25f) {
-				Interaction = Minigame.Slice;
-			} else if (rand <= 0.5f) {
-				Interaction = Minigame.Chop;
-			} else if (rand <= 0.75f) {
-				Interaction = Minigame.Grate;
-			} else {
-				Interaction = Minigame.Targets;
+			if (Interaction == null) {
+				float rand = Random.Range (0.0f, 1.0f);
+				if (rand <= 0.25f) {
+					Interaction = Minigame.Slice;
+				} else if (rand <= 0.5f) {
+					Interaction = Minigame.Chop;
+				} else if (rand <= 0.75f) {
+					Interaction = Minigame.Grate;
+				} else {
+					Interaction = Minigame.Targets;
+				}
 			}
+
 		} else if (Complex && Item) {
 			int targetItem = GameController.instance.CurrentDish.IngredientItems [IngredientType];
 			bool hasRelevant = false;
 			bool hasGold = false;
-			int count = (!Player.instance.MyMission.Variations.Contains(Variation.revolver)) ? 3 : 6;
+			int count = (!GameController.instance.CurrentDish.Variations.Contains(Variation.revolver)) ? 3 : 6;
 			float probability = 1.0f / (float) count;
 			float goldProbability = 2.0f / (float) count;
 			for (int i = 0; i < count; i++) {
@@ -123,7 +126,7 @@ public class Ingredient : MonoBehaviour {
 				if (Random.Range(0.0f, 1.0f) <= probability) {
 					uniqueItem = targetItem;
 				}
-				if (uniqueItem != targetItem && Player.instance.MyMission.Variations.Contains(Variation.goldhunt) && Random.Range(0.0f, 1.0f) <= probability) {
+				if (uniqueItem != targetItem && GameController.instance.CurrentDish.Variations.Contains(Variation.goldhunt) && Random.Range(0.0f, 1.0f) <= probability) {
 					uniqueItem = -1;
 				}
 				while (Items.Contains(uniqueItem)) {
@@ -145,7 +148,7 @@ public class Ingredient : MonoBehaviour {
 			}
 		}
 
-		if (Player.instance.MyMission.Variations.Contains(Variation.doubleTrouble)) {
+		if (GameController.instance.CurrentDish.Variations.Contains(Variation.doubleTrouble)) {
 			transform.localScale *= 0.8f;
 		}
 	}
@@ -224,7 +227,7 @@ public class Ingredient : MonoBehaviour {
 		if (ItemSprites.Contains(helper.gameObject.GetComponent<SpriteRenderer>())) {
 			int index = ItemSprites.IndexOf(helper.gameObject.GetComponent<SpriteRenderer> ());
 
-			if (Player.instance.MyMission.Variations.Contains(Variation.goldhunt) && helper.gameObject.GetComponent<SpriteRenderer>().sprite == storage.MoneySprite) {
+			if (GameController.instance.CurrentDish.Variations.Contains(Variation.goldhunt) && helper.gameObject.GetComponent<SpriteRenderer>().sprite == storage.MoneySprite) {
 				GameController.instance.GoldParticles.gameObject.transform.position = helper.gameObject.transform.position;
 				Destroy (helper.gameObject);
 				Destroy (ItemSliders [index].gameObject);
@@ -261,15 +264,15 @@ public class Ingredient : MonoBehaviour {
 		}
 		if (ShouldRotate) {
 			for (int i = 0; i < ItemsContainers.Length; i++) {
-				ItemsContainers [i].transform.RotateAround (transform.position, transform.forward, RotationSpeed * Time.deltaTime);
+				ItemsContainers [i].transform.RotateAround (transform.position, transform.forward, RotationSpeed * GameController.instance.TimeStep);
 			}
 			for (int i = 0; i < ItemSprites.Count; i++) {
-				ItemSprites [i].transform.Rotate (ItemSprites [i].transform.forward, -RotationSpeed * Time.deltaTime);
-				ItemSliders [i].transform.Rotate (ItemSliders [i].transform.forward, -RotationSpeed * Time.deltaTime);
+				ItemSprites [i].transform.Rotate (ItemSprites [i].transform.forward, -RotationSpeed * GameController.instance.TimeStep);
+				ItemSliders [i].transform.Rotate (ItemSliders [i].transform.forward, -RotationSpeed * GameController.instance.TimeStep);
 			}
 		}
 
-		timer += Time.deltaTime;
+		timer += GameController.instance.TimeStep;
 
 		mySlider.value = timer;
 		foreach (var slider in ItemSliders) {
@@ -388,6 +391,7 @@ public class Ingredient : MonoBehaviour {
 }
 
 public enum Minigame {
+	None,
 	Slice,
 	Chop,
 	Grate,

@@ -38,8 +38,6 @@ public class LerpScore : MonoBehaviour {
 		currentScore += points;
 
 		animTimer = 0f;
-
-		//ScoreLabel.gameObject.GetComponent<Animation> ().Play ();
 	}
 
 	void Update () {

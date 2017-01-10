@@ -6,6 +6,8 @@ using UnityEngine.SceneManagement;
 
 public class GameController : MonoBehaviour {
 
+	public GameObject[] BoosterButtons;
+
 	public ParticleSystem GoldParticles;
 	public GameObject BonusScorePrefab;
 	public GameObject FlyingStarsPrefab;
@@ -100,11 +102,34 @@ public class GameController : MonoBehaviour {
 
 	public bool FullPause;
 
+	public Dictionary<Booster, bool> BoostersActive;
+
+	public Dictionary<Booster, float> BoostersTimers;
+
+	public Dictionary<Booster, float> BoostersLifetimes;
+
+	public Dictionary<Booster, int> BoostersCounts;
+
+	public ParticleSystem WinterParticles;
+
+	public float TimeStep { 
+		get {
+			if (BoostersActive.ContainsKey(Booster.winter) && BoostersActive[Booster.winter] == true) {
+				return Time.deltaTime / 3;
+			} else {
+				return Time.deltaTime;
+			} 
+		} 
+	}
+
+	public delegate void BoosterStatusChangedEventHandler (Booster booster, bool active);
+	public event BoosterStatusChangedEventHandler OnBoosterStatusChanged;
+
 	void Awake() {
-		if (!Player.instance.MyMission.Variations.Contains(Variation.classic)) {
+		//if (!Player.instance.MyMission.Variations.Contains(Variation.classic)) {
 			IsFirst = false;
 			IsSecond = false;
-		}
+		//}
 		Player.instance.FirstTime = false;
 		instance = this;
 		Lerper = GetComponent<LerpScore> ();
@@ -112,7 +137,6 @@ public class GameController : MonoBehaviour {
 		helperAnim = HelperImage.GetComponent<Animation> ();
 		storage = GameObject.FindGameObjectWithTag ("Player").GetComponent<Storage> ();
 		Dish.OnDishReady += Dish_OnDishReady;
-		//Dish.OnDishSwitch += Dish_OnDishSwitch;
 		Ingredient.OnIngredientDestroyed += Ingredient_OnIngredientDestroyed;
 		Dish.OnDishInitialized += Dish_OnDishInitialized;
 		Flyer.OnFlyerArrived += Flyer_OnFlyerArrived;
@@ -122,6 +146,45 @@ public class GameController : MonoBehaviour {
 		destinationPositions = new List<Vector2> ();
 		interpolators = new List<float> ();
 		comboDefaultColor = ComboLabel.color;
+
+		BoostersActive = new Dictionary<Booster, bool> ();
+		BoostersLifetimes = new Dictionary<Booster, float> ();
+		BoostersTimers = new Dictionary<Booster, float> ();
+		BoostersCounts = new Dictionary<Booster, int> ();
+		foreach (var booster in Player.instance.MyMission.Boosters) {
+			if (!BoostersActive.ContainsKey(booster)) {
+				BoostersActive.Add (booster, false);
+				BoostersLifetimes.Add(booster, Player.instance.MyMission.BoosterLifetimes[Player.instance.MyMission.Boosters.IndexOf(booster)]);
+				BoostersTimers.Add (booster, 0.0f);
+				BoostersCounts.Add (booster, Player.instance.MyMission.BoosterCounts [Player.instance.MyMission.Boosters.IndexOf (booster)]);
+			}
+		}
+		for (int i = 0; i < Player.instance.MyMission.Boosters.Count; i++) {
+			if (BoostersCounts.ContainsKey(Player.instance.MyMission.Boosters [i])) {
+				BoosterButtons [i].GetComponentInChildren<Text> ().text = Player.instance.MyMission.Boosters [i].ToString () + " " + BoostersCounts [Player.instance.MyMission.Boosters [i]] + "/" + Player.instance.MyMission.BoosterCounts [i];
+			}
+
+			if (Player.instance.MyMission.Boosters [i] == Booster.none) {
+				BoosterButtons [i].SetActive (false);
+			}
+		}
+	}
+
+	public void ActivateBoosterByIndex (int index) {
+		if (BoostersCounts[Player.instance.MyMission.Boosters [index]] > 0) {
+			BoostersCounts [Player.instance.MyMission.Boosters [index]]--;
+			for (int i = 0; i < Player.instance.MyMission.Boosters.Count; i++) {
+				if (BoostersCounts.ContainsKey(Player.instance.MyMission.Boosters [i])) {
+					BoosterButtons [i].GetComponentInChildren<Text> ().text = Player.instance.MyMission.Boosters [i].ToString () + " " + BoostersCounts [Player.instance.MyMission.Boosters [i]] + "/" + Player.instance.MyMission.BoosterCounts [i];
+				}
+			}
+			BoostersActive [Player.instance.MyMission.Boosters [index]] = true;
+			BoostersTimers [Player.instance.MyMission.Boosters [index]] = 0.0f;
+			OnBoosterStatusChanged (Player.instance.MyMission.Boosters [index], true);
+			if (Player.instance.MyMission.Boosters [index] == Booster.winter) {
+				WinterParticles.Play ();
+			}
+		}
 	}
 
 	void Flyer_OnFlyerArrived (GameObject myObj) {
@@ -142,7 +205,6 @@ public class GameController : MonoBehaviour {
 		List<Ingredient> ingredientsToRemove = new List<Ingredient> (spawnedIngredients);
 
 		for (int i = 0; i < ingredientsToRemove.Count; i++) {
-			//spawnedIngredients.Remove (ingredientsToRemove [i]);
 			RemoveIngredient (ingredientsToRemove [i], true);
 			Destroy (ingredientsToRemove [i].gameObject);
 		}
@@ -170,7 +232,7 @@ public class GameController : MonoBehaviour {
 		Dishes = new Dish[3];
 		for (int i = 0; i < Dishes.Length; i++) {
 			GameObject newDish = Instantiate (DishPrefab, DishSpawn.transform.position, DishSpawn.transform.rotation) as GameObject;
-			newDish.GetComponent<Dish> ().minIngredients = i;
+			newDish.GetComponent<Dish> ().dishData = (Player.instance.MyMission.DishDatas.Length > 0) ? Player.instance.MyMission.DishDatas[i] : null;
 			Dishes [i] = newDish.GetComponent<Dish> ();
 		}
 		CurrentDish = Dishes [0];
@@ -183,7 +245,7 @@ public class GameController : MonoBehaviour {
 			StarParticles [i].transform.position = StarImages [i].transform.position;
 		}
 		SpawnTime = 1.75f;
-		if (Player.instance.MyMission.Variations.Contains(Variation.memory)) {
+		if (CurrentDish.Variations.Contains(Variation.memory)) {
 			CurrentDish.initTimer = 6.0f;
 			timer = 0.0f;
 			SpawnTime = CurrentDish.initTimer;
@@ -191,7 +253,7 @@ public class GameController : MonoBehaviour {
 	}
 
 	public void FirstStep(Ingredient ingredient) {	
-		if (Player.instance.MyMission.Variations.Contains(Variation.doubleTrouble)) {
+		if (CurrentDish.Variations.Contains(Variation.doubleTrouble)) {
 			if (ingredient.Side == "left") {
 				ingredient.gameObject.transform.position = new Vector2 (-1.01f, ingredient.gameObject.transform.position.y);
 			} else {
@@ -206,12 +268,12 @@ public class GameController : MonoBehaviour {
 		ingredient.CurrentScore = ingredient.MaxScore;
 		timer = 0.0f;
 		ingredient.mySlider.gameObject.SetActive (false);
-		int count = (!Player.instance.MyMission.Variations.Contains(Variation.revolver) /*&& !Player.instance.MyMission.Variations.Contains(Variation.sixChoicesRotating)*/) ? 1 : 2;
+		int count = (!CurrentDish.Variations.Contains(Variation.revolver)) ? 1 : 2;
 		for (int i = 0; i < count; i++) {
 			ingredient.ItemsContainers[i].SetActive (true);
 		}
 
-		if (Player.instance.MyMission.Variations.Contains(Variation.carousel) /*|| Player.instance.MyMission.Variations.Contains(Variation.sixChoicesRotating)*/) {
+		if (CurrentDish.Variations.Contains(Variation.carousel)) {
 			ingredient.SpinHelpers ();
 		}
 	}
@@ -239,7 +301,7 @@ public class GameController : MonoBehaviour {
 			HelperImage.GetComponent<SpriteRenderer> ().sprite = storage.HandSprites [1];
 		}
 
-		if (Player.instance.MyMission.Variations.Contains(Variation.doubleTrouble)) {
+		if (CurrentDish.Variations.Contains(Variation.doubleTrouble)) {
 			Debug.Log ("Should align");
 			int index = 0;
 			for (int i = 0; i < spawnedIngredients.Count; i++) {
@@ -318,7 +380,7 @@ public class GameController : MonoBehaviour {
 		}
 		Destroy (ingredient);
 
-		if (Player.instance.MyMission.Variations.Contains(Variation.switcheroo) && CurrentDish.Ingredients.Count != 0) {
+		if (CurrentDish.Variations.Contains(Variation.switcheroo) && CurrentDish.Ingredients.Count != 0) {
 			StartCoroutine (SwitchDish());
 		}
 	}
@@ -340,7 +402,6 @@ public class GameController : MonoBehaviour {
 	public void AddIncorrect(Ingredient ingredient) {
 		HelperLabel.gameObject.SetActive (false);
 		IsPaused = false;
-		CurrentDish.AddIncorrect ();
 		RedTint.GetComponent<Animation> ().Play();
 		Mistakes--;
 		Player.instance.HasWon = false;
@@ -438,6 +499,22 @@ public class GameController : MonoBehaviour {
 		if (FullPause) {
 			return;
 		}
+		foreach (var activeByBooster in BoostersActive) {
+			if (activeByBooster.Value == true) {
+				BoostersTimers [activeByBooster.Key] += TimeStep;
+			} else if (BoostersTimers [activeByBooster.Key] != 0.0f) {
+				BoostersTimers [activeByBooster.Key] = 0.0f;
+			}
+		}
+		foreach (var timerByBooster in BoostersTimers) {
+			if (timerByBooster.Value >= BoostersLifetimes[timerByBooster.Key]) {
+				BoostersActive [timerByBooster.Key] = false;
+				OnBoosterStatusChanged (timerByBooster.Key, false);
+				if (timerByBooster.Key == Booster.winter) {
+					WinterParticles.Stop ();
+				}
+			}
+		}
 		if (switchDish && !lastIngredient) {
 			switchDish = false;
 			CurrentDish.SetActive (false);
@@ -456,8 +533,8 @@ public class GameController : MonoBehaviour {
 			ResetDish ();
 		}
 		if (lastIngredient) {	
-			if (!Player.instance.MyMission.Variations.Contains(Variation.memory)) {				
-				if (!Player.instance.MyMission.Variations.Contains(Variation.switcheroo)) {
+			if (!CurrentDish.Variations.Contains(Variation.memory)) {				
+				if (!CurrentDish.Variations.Contains(Variation.switcheroo)) {
 					timer = 0.0f;
 					SpawnTime = 1.75f;
 				}
@@ -474,7 +551,7 @@ public class GameController : MonoBehaviour {
 				CurrentDish.SetActive (false);
 			}
 			ResetDish ();
-			if (Player.instance.MyMission.Variations.Contains(Variation.memory)) {
+			if (CurrentDish.Variations.Contains(Variation.memory)) {
 				CurrentDish.startInitialize = true;
 				CurrentDish.initTimer = 6.0f;
 				timer = 0.0f;
@@ -494,10 +571,10 @@ public class GameController : MonoBehaviour {
 				Restart ();
 			}
 		} else {			
-			timer += Time.deltaTime;
+			timer += TimeStep;
 			if (timer >= SpawnTime) {
-				//spawnedIngredients.Clear ();
-				if (CurrentDish.Ingredients.Count > 0 && timer >= SpawnTime + 0.6f) { // 0.6 - это задержка между уничтожением и спавном!
+				Debug.Log (TimeStep);
+				if (CurrentDish.Ingredients.Count > 0 && timer >= SpawnTime + TimeStep * 60.0f) { // 0.6 - это задержка между уничтожением и спавном!
 					timer = 0.0f;
 					SpawnIngredient ();
 				}
@@ -515,7 +592,7 @@ public class GameController : MonoBehaviour {
 	}
 
 	void SpawnIngredient () {		
-		int count = (!Player.instance.MyMission.Variations.Contains(Variation.doubleTrouble)) ? 1 : 2;
+		int count = (!CurrentDish.Variations.Contains(Variation.doubleTrouble)) ? 1 : 2;
 
 		Transform[] SpawnTransforms = new Transform[count];
 		if (count == 1) {
@@ -543,9 +620,7 @@ public class GameController : MonoBehaviour {
 			int index;
 
 			List<int> spawnedIngredientsTypes = new List<int> ();
-			foreach (var spawnedIngredient in spawnedIngredients) {
-				spawnedIngredientsTypes.Add (spawnedIngredient.IngredientType);
-			}
+
 
 			do {
 				index = Random.Range (0, AllowedIngredients.Count);
@@ -554,19 +629,24 @@ public class GameController : MonoBehaviour {
 
 			ingredient.IngredientType = AllowedIngredients[index];
 
+			foreach (var spawnedIngredient in spawnedIngredients) {
+				spawnedIngredientsTypes.Add (spawnedIngredient.IngredientType);
+			}
+
 			ingredient.mySprite.sprite = storage.IngredientSprites[ingredient.IngredientType];
 
 			spawnedIngredients.Add (ingredient);
-			if (NextComplex) {
+			if (CurrentDish.Minigames.ContainsKey (ingredient.IngredientType) && CurrentDish.Minigames[ingredient.IngredientType] != Minigame.None) {
 				ingredient.Complex = true;
 				ingredient.Action = true;
+				ingredient.Interaction = CurrentDish.Minigames [ingredient.IngredientType];
 				NextComplex = false;
-			} else if (CurrentDish.IngredientItems.ContainsKey(ingredient.IngredientType) && CurrentDish.IngredientItems[ingredient.IngredientType] != -1) {
+			} else if (CurrentDish.IngredientItems.ContainsKey (ingredient.IngredientType) && CurrentDish.IngredientItems[ingredient.IngredientType] != -1) {
 				ingredient.Complex = true;
 				ingredient.Item = true;
 			}
 
-			if (Player.instance.MyMission.Variations.Contains(Variation.doubleTrouble)) {
+			if (CurrentDish.Variations.Contains (Variation.doubleTrouble)) {
 				if (i == 0) {
 					ingredient.Side = "left";
 				} else {

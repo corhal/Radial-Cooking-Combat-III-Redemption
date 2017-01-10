@@ -15,8 +15,12 @@ public class MissionData : MonoBehaviour {
 
 	public int[] IngredientCounts;
 
-	//public Variation MyVariation;
+	public DishData[] DishDatas;
+
 	public List<Variation> Variations;
+	public List<Booster> Boosters;
+	public List<float> BoosterLifetimes;
+	public List<int> BoosterCounts;
 
 	public void InitializeFromMissionData(MissionData missionData) {
 		TrashIngredientsCount = missionData.TrashIngredientsCount;
@@ -28,8 +32,12 @@ public class MissionData : MonoBehaviour {
 		missionData.StarGoals.CopyTo (StarGoals, 0);
 		IngredientCounts = new int[missionData.IngredientCounts.Length];
 		missionData.IngredientCounts.CopyTo (IngredientCounts, 0);
-		//MyVariation = missionData.MyVariation;
-		Variations = new List<Variation>(missionData.Variations);
+		DishDatas = new DishData[missionData.DishDatas.Length];
+		missionData.DishDatas.CopyTo (DishDatas, 0);
+		Variations = new List<Variation> (missionData.Variations);
+		Boosters = new List<Booster> (missionData.Boosters);
+		BoosterLifetimes = new List<float> (missionData.BoosterLifetimes);
+		BoosterCounts = new List<int> (missionData.BoosterCounts);
 	}
 }
 
@@ -41,5 +49,12 @@ public enum Variation {
 	carousel,
 	shadowplay,
 	switcheroo,
-	goldhunt
+	goldhunt,
+	crookedMan
+}
+
+public enum Booster {
+	none,
+	candle,
+	winter
 }

@@ -47,6 +47,7 @@
   <ItemGroup>
      <Compile Include="Assets\Scripts\Blast.cs" />
      <Compile Include="Assets\Scripts\Dish.cs" />
+     <Compile Include="Assets\Scripts\DishData.cs" />
      <Compile Include="Assets\Scripts\DrawLine.cs" />
      <Compile Include="Assets\Scripts\Flyer.cs" />
      <Compile Include="Assets\Scripts\GameController.cs" />

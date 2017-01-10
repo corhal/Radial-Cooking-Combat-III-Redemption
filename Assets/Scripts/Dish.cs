@@ -30,8 +30,9 @@ public class Dish : MonoBehaviour {
 
 	public Dictionary<int, int> IngredientsCounts;
 
-	//public static Dish instance;
-	public int minIngredients;
+	public Dictionary<int, Minigame> Minigames;
+
+	public int ingredientsCount;
 
 	Animation MyAnimation;
 	public Animation IngredientsAnimation;
@@ -48,10 +49,10 @@ public class Dish : MonoBehaviour {
 	public delegate void DishInitializedEventHandler (Dish dish);
 	public static event DishInitializedEventHandler OnDishInitialized;
 
-	/*public delegate void DishSwitchEventHandler (Dish dish);
-	public static event DishSwitchEventHandler OnDishSwitch;*/
-
 	public List<int> UnallowedIngredients;
+	public List<Variation> Variations;
+
+	public DishData dishData;
 
 	public void Animate() {
 		MyAnimation.Play ();
@@ -59,7 +60,6 @@ public class Dish : MonoBehaviour {
 
 	void Awake() {
 		storage = GameObject.FindGameObjectWithTag ("Player").GetComponent<Storage> ();
-		//instance = this;
 
 		MyAnimation = GetComponentInChildren<Animation> ();
 
@@ -67,24 +67,45 @@ public class Dish : MonoBehaviour {
 		IngredientsCounts = new Dictionary<int, int> ();
 		IngredientItems = new Dictionary<int, int> ();
 		Ingredients = new List<int> ();
+		GameController.instance.OnBoosterStatusChanged += GameController_instance_OnBoosterStatusChanged;
 	}
 
-	void Start() {			
-		DishIndex = GameController.instance.dishCount;
-		minIngredients = Player.instance.MyMission.IngredientCounts[DishIndex];
-		DishSprite.sprite = storage.DishSprites [DishIndex];
-		DishSprite.transform.position = GameController.instance.DishSpritesSpawns [DishIndex].position;
-		if (DishIndex >= 3) {
-			gameObject.SetActive (false);
+	void GameController_instance_OnBoosterStatusChanged (Booster booster, bool active) {
+		if (Variations.Contains(Variation.shadowplay) && booster == Booster.candle) {
+			if (active) {
+				for (int i = 0; i < IngredientSprites.Count; i++) {
+					IngredientSprites[i].color = Color.white;
+					HelperSprites[i].color = Color.white;
+				}
+			} else {
+				for (int i = 0; i < IngredientSprites.Count; i++) {
+					IngredientSprites[i].color = Color.black;
+					HelperSprites[i].color = Color.black;
+				}
+			}
+		}
+	}
+
+	void InitializeDish () {
+		if (dishData != null) {
+			Variations = new List<Variation> (dishData.Variations);
+		} else {
+			Variations = new List<Variation> (Player.instance.MyMission.Variations);
 		}
 
-		int maxIngredients = Player.instance.MyMission.IngredientCounts[DishIndex];
+		DishIndex = GameController.instance.dishCount;
+		ingredientsCount = (dishData == null) ? 4 : dishData.IngredientSpriteIndexes.Length;
 
-		int length = Random.Range (minIngredients, maxIngredients);
+		DishSprite.sprite = (dishData == null) ? storage.DishSprites [DishIndex] : storage.DishSprites [dishData.DishSpriteIndex];
+		DishSprite.transform.position = GameController.instance.DishSpritesSpawns [DishIndex].position;
+
 		totalIngredients = 0;
+
+		Minigames = new Dictionary<int, Minigame> ();
+
 		List<Sprite> AllowedIngredientSprites = new List<Sprite> (storage.IngredientSmallSprites);
 		List<Sprite> UnallowedIngredientSprites = new List<Sprite> ();
-		if (Player.instance.MyMission.Variations.Contains(Variation.shadowplay)) {
+		if (Variations.Contains(Variation.shadowplay)) {
 			UnallowedIngredientSprites.Add (AllowedIngredientSprites[9]);
 			UnallowedIngredientSprites.Add (AllowedIngredientSprites[7]);
 			UnallowedIngredientSprites.Add (AllowedIngredientSprites[2]);
@@ -92,45 +113,82 @@ public class Dish : MonoBehaviour {
 			UnallowedIngredients.Add (7);
 			UnallowedIngredients.Add (2);
 		}
-		for (int i = 0; i < length; i++) {
-			int uniqueIngredient = Random.Range(0, AllowedIngredientSprites.Count);
-			while (IngredientConditionsDict.ContainsKey(uniqueIngredient) || UnallowedIngredientSprites.Contains(AllowedIngredientSprites[uniqueIngredient])) {
+		for (int i = 0; i < ingredientsCount; i++) {
+			int uniqueIngredient = 0;
+			int ingredientCondition = 2;
+			if (dishData == null) {
 				uniqueIngredient = Random.Range(0, AllowedIngredientSprites.Count);
+				while (IngredientConditionsDict.ContainsKey(uniqueIngredient) || UnallowedIngredientSprites.Contains(AllowedIngredientSprites[uniqueIngredient])) {
+					uniqueIngredient = Random.Range(0, AllowedIngredientSprites.Count);
+				}
+			} else {
+				uniqueIngredient = dishData.IngredientSpriteIndexes [i];
+				ingredientCondition = dishData.IngredientsConditions [i];
 			}
-			IngredientConditionsDict.Add (uniqueIngredient, Random.Range(2, 2));
+
+			if (dishData != null) {
+				Minigames.Add (uniqueIngredient, dishData.Minigames [i]);
+				Debug.Log (uniqueIngredient + ", " + dishData.Minigames [i]);
+			} else {
+				float chance = Random.Range (0.0f, 1.0f);
+				if (chance <= 0.3f) {
+					int minigameIndex = Random.Range (0, 4);
+					Minigame minigame = (Minigame)minigameIndex;
+					Minigames.Add (uniqueIngredient, minigame);
+					ingredientCondition = 1;
+				} else {
+					Minigames.Add (uniqueIngredient, Minigame.None);
+				}
+			}
+
+			IngredientConditionsDict.Add (uniqueIngredient, ingredientCondition);
 			IngredientsCounts.Add (uniqueIngredient, 0);
 			Ingredients.Add(uniqueIngredient);
 			IngredientSprites [i].gameObject.SetActive (true);
 			IngredientSprites [i].sprite = AllowedIngredientSprites [uniqueIngredient];
+
+			if (Variations.Contains(Variation.crookedMan)) {
+				IngredientSprites [i].gameObject.transform.Rotate (0.0f, 0.0f, Random.Range(0.0f, 360.0f));
+			}
 		}
-		for (int i = 0; i < length; i++) {
-			int uniqueItem = Random.Range(0, storage.ItemSprites.Length);
-			while (IngredientItems.ContainsValue(uniqueItem)) {
+		for (int i = 0; i < ingredientsCount; i++) {
+			int uniqueItem = 0;
+			if (dishData == null) {
 				uniqueItem = Random.Range(0, storage.ItemSprites.Length);
-			}
+				while (IngredientItems.ContainsValue(uniqueItem)) {
+					uniqueItem = Random.Range(0, storage.ItemSprites.Length);
+				}
+				float noChance;
+				if (DishIndex == 1) {
+					noChance = 0.5f;
+				} else {
+					noChance = 0.4f;
+				}
 
-			float noChance;
-			if (DishIndex == 1) {
-				noChance = 0.5f;
+				if (Random.Range (0.0f, 1.0f) <= noChance) {
+					uniqueItem = -1;
+				}
 			} else {
-				noChance = 0.4f;
+				uniqueItem = dishData.HelperItemIndexes [i];
 			}
 
-			if (Random.Range (0.0f, 1.0f) <= noChance) {
-				uniqueItem = -1;
-			}
 			IngredientItems.Add (Ingredients [i], uniqueItem);
-
 			if (uniqueItem != -1) {
 				HelperSprites [i].sprite = storage.ItemSprites [uniqueItem];
 			} else {
 				HelperSprites [i].sprite = null;
 				HelperSprites [i].gameObject.SetActive (false);
 			}
+
+			Debug.Log (Ingredients [i] + ", " + uniqueItem);
 		}
 		foreach (var condition in IngredientConditionsDict) {
 			totalIngredients += condition.Value;
 		}
+	}
+
+	void Start () {		
+		InitializeDish ();
 		RefreshLabels ();
 
 		startInitialize = true;
@@ -156,7 +214,7 @@ public class Dish : MonoBehaviour {
 			GameController.instance.dishCount = 0;
 		}
 
-		if (Player.instance.MyMission.Variations.Contains(Variation.shadowplay)) {
+		if (Variations.Contains(Variation.shadowplay)) {
 			for (int i = 0; i < IngredientSprites.Count; i++) {
 				IngredientSprites[i].color = Color.black;
 				HelperSprites[i].color = Color.black;
@@ -238,7 +296,7 @@ public class Dish : MonoBehaviour {
 			}
 			if (initTimer <= 0.0f) {
 				GameController.instance.MemoryTimerLabel.gameObject.SetActive (false);
-				if (Player.instance.MyMission.Variations.Contains(Variation.memory)) {
+				if (Variations.Contains(Variation.memory)) {
 					IngredientsAnimation.gameObject.SetActive (false);
 				}
 				startInitialize = false;
@@ -260,13 +318,6 @@ public class Dish : MonoBehaviour {
 				IngredientSprites.RemoveAt (Ingredients.IndexOf (ingredient.IngredientType));
 				HelperSprites.RemoveAt (Ingredients.IndexOf (ingredient.IngredientType));
 				Ingredients.Remove (ingredient.IngredientType);
-				if (Ingredients.Count == 0) {					
-
-				}
-			}
-
-			if (Player.instance.MyMission.Variations.Contains(Variation.switcheroo) && Ingredients.Count > 0) {
-				// GameController.instance.SwitchDish ();
 			}
 		}
 	}
@@ -275,13 +326,14 @@ public class Dish : MonoBehaviour {
 		shouldMoves [index] = true;
 	}
 
-	public void AddIncorrect() {
-	}
-
 	void RefreshLabels() {
 		for (int i = 0; i < Ingredients.Count; i++) {	
 			ingredientCountLabels [i].gameObject.SetActive (true);
 			ingredientCountLabels [i].text = IngredientsCounts [Ingredients [i]] + "/" + IngredientConditionsDict [Ingredients [i]];
 		}
+	}
+
+	void OnDestroy () {
+		GameController.instance.OnBoosterStatusChanged -= GameController_instance_OnBoosterStatusChanged;
 	}
 }
