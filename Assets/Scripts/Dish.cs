@@ -93,8 +93,15 @@ public class Dish : MonoBehaviour {
 			Variations = new List<Variation> (Player.instance.MyMission.Variations);
 		}
 
+		if (Variations.Contains(Variation.memory)) { // Вот это на самом деле работает, не то, что в геймКонтроллере
+			initTimer = 6.0f;
+			GameController.instance.timer = 0.0f;
+			GameController.instance.SpawnTime = initTimer;
+		}
+
 		DishIndex = GameController.instance.dishCount;
 		ingredientsCount = (dishData == null) ? 4 : dishData.IngredientSpriteIndexes.Length;
+		ingredientsCount = (Variations.Contains(Variation.memory)) ? 3 : ingredientsCount;
 
 		DishSprite.sprite = (dishData == null) ? storage.DishSprites [DishIndex] : storage.DishSprites [dishData.DishSpriteIndex];
 		DishSprite.transform.position = GameController.instance.DishSpritesSpawns [DishIndex].position;
@@ -128,7 +135,6 @@ public class Dish : MonoBehaviour {
 
 			if (dishData != null) {
 				Minigames.Add (uniqueIngredient, dishData.Minigames [i]);
-				Debug.Log (uniqueIngredient + ", " + dishData.Minigames [i]);
 			} else {
 				float chance = Random.Range (0.0f, 1.0f);
 				if (chance <= 0.3f) {
@@ -185,6 +191,7 @@ public class Dish : MonoBehaviour {
 		foreach (var condition in IngredientConditionsDict) {
 			totalIngredients += condition.Value;
 		}
+
 	}
 
 	void Start () {		
@@ -289,6 +296,7 @@ public class Dish : MonoBehaviour {
 		}
 
 		if (startInitialize) {
+			Debug.Log (initTimer.ToString());
 			initTimer -= Time.deltaTime;
 			GameController.instance.MemoryTimerLabel.text = (int)initTimer + "...";
 			if (initTimer <= 4.0f) {

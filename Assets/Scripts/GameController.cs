@@ -199,7 +199,7 @@ public class GameController : MonoBehaviour {
 		ResetDish ();
 	}
 
-	void ResetDish() {		
+	public void ResetDish() {		
 		AllowedIngredients = new List<int> (CurrentDish.Ingredients);
 
 		List<Ingredient> ingredientsToRemove = new List<Ingredient> (spawnedIngredients);
@@ -244,11 +244,13 @@ public class GameController : MonoBehaviour {
 			StarImages [i].rectTransform.anchoredPosition = new Vector2 (155.0f * (float) StarGoals[i] / (float) StarGoals[2] - 172.0f * (1 - (float) StarGoals[i] / (float) StarGoals[2]) - 15.0f, 460.0f);
 			StarParticles [i].transform.position = StarImages [i].transform.position;
 		}
-		SpawnTime = 1.75f;
 		if (CurrentDish.Variations.Contains(Variation.memory)) {
+			Debug.Log ("Variation is memory");
 			CurrentDish.initTimer = 6.0f;
 			timer = 0.0f;
 			SpawnTime = CurrentDish.initTimer;
+		} else {
+			SpawnTime = 1.75f;
 		}
 	}
 
@@ -302,7 +304,6 @@ public class GameController : MonoBehaviour {
 		}
 
 		if (CurrentDish.Variations.Contains(Variation.doubleTrouble)) {
-			Debug.Log ("Should align");
 			int index = 0;
 			for (int i = 0; i < spawnedIngredients.Count; i++) {
 				if (spawnedIngredients[i].Focused) {
@@ -573,7 +574,6 @@ public class GameController : MonoBehaviour {
 		} else {			
 			timer += TimeStep;
 			if (timer >= SpawnTime) {
-				Debug.Log (TimeStep);
 				if (CurrentDish.Ingredients.Count > 0 && timer >= SpawnTime + TimeStep * 60.0f) { // 0.6 - это задержка между уничтожением и спавном!
 					timer = 0.0f;
 					SpawnIngredient ();
