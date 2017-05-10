@@ -11,6 +11,7 @@ public class Dish : MonoBehaviour {
 	public SpriteRenderer DishSprite;
 	public List<SpriteRenderer> IngredientSprites;
 	public List<SpriteRenderer> ingredientSprites;
+	public List<SpriteRenderer> IngredientBacks;
 
 	public int totalIngredients;
 	public int collectedIngredients;
@@ -138,10 +139,10 @@ public class Dish : MonoBehaviour {
 			} else {
 				float chance = Random.Range (0.0f, 1.0f);
 				if (chance <= 0.3f) {
-					int minigameIndex = Random.Range (0, 4);
+					int minigameIndex = Random.Range (1, 4);
 					Minigame minigame = (Minigame)minigameIndex;
 					Minigames.Add (uniqueIngredient, minigame);
-					ingredientCondition = 1;
+					//ingredientCondition = 1;
 				} else {
 					Minigames.Add (uniqueIngredient, Minigame.None);
 				}
@@ -151,6 +152,7 @@ public class Dish : MonoBehaviour {
 			IngredientsCounts.Add (uniqueIngredient, 0);
 			Ingredients.Add(uniqueIngredient);
 			IngredientSprites [i].gameObject.SetActive (true);
+			IngredientBacks [i].gameObject.SetActive (true);
 			IngredientSprites [i].sprite = AllowedIngredientSprites [uniqueIngredient];
 
 			if (Variations.Contains(Variation.crookedMan)) {
@@ -185,8 +187,6 @@ public class Dish : MonoBehaviour {
 				HelperSprites [i].sprite = null;
 				HelperSprites [i].gameObject.SetActive (false);
 			}
-
-			Debug.Log (Ingredients [i] + ", " + uniqueItem);
 		}
 		foreach (var condition in IngredientConditionsDict) {
 			totalIngredients += condition.Value;
@@ -243,22 +243,22 @@ public class Dish : MonoBehaviour {
 	public bool startInitialize;
 	public float initTimer;
 
-	public void SetActive(bool active) {
+	public void SetActive (bool active) {
 		IsActive = active;
 		if (active) {
 			DishSprite.color = new Color (1.0f, 1.0f, 1.0f, 1.0f);
 			InitialCookPosition = GameController.instance.Cook.transform.position;
 			interpolator = 0.0f;
 			moveCook = true;
-		} else if (!IsReady) {
-			DishSprite.color = new Color (1.0f, 1.0f, 1.0f, 0.5f);
+		} else /*if (!IsReady)*/ {
+			DishSprite.color = new Color (1.0f, 1.0f, 1.0f, 0.0f);
 		}
 		if (allArrived) {
 			IngredientsAnimation.gameObject.SetActive (active);
 		}
 	}
 
-	void Update() {
+	void Update () {
 		if (!IsActive) {
 			return;
 		}
@@ -296,7 +296,6 @@ public class Dish : MonoBehaviour {
 		}
 
 		if (startInitialize) {
-			Debug.Log (initTimer.ToString());
 			initTimer -= Time.deltaTime;
 			GameController.instance.MemoryTimerLabel.text = (int)initTimer + "...";
 			if (initTimer <= 4.0f) {
@@ -319,13 +318,18 @@ public class Dish : MonoBehaviour {
 			collectedIngredients++;
 			RefreshLabels ();
 			if (IngredientsCounts [ingredient.IngredientType] == IngredientConditionsDict [ingredient.IngredientType]) {
-				HelperSprites [Ingredients.IndexOf (ingredient.IngredientType)].color = new Color (1.0f, 1.0f, 1.0f, 0.0f);
-				IngredientsSuckIn (ingredients.IndexOf (ingredient.IngredientType));
-				ingredientCountLabels [Ingredients.IndexOf (ingredient.IngredientType)].color = new Color (1.0f, 1.0f, 1.0f, 0.0f);
+				//HelperSprites [Ingredients.IndexOf (ingredient.IngredientType)].color = new Color (1.0f, 1.0f, 1.0f, 0.0f);
+				//IngredientsSuckIn (ingredients.IndexOf (ingredient.IngredientType));
+				ingredientCountLabels [Ingredients.IndexOf (ingredient.IngredientType)].color = new Color(98.0f/255.0f, 141.0f/255.0f, 61.0f/255.0f); // new Color (1.0f, 1.0f, 1.0f, 0.0f);
 				ingredientCountLabels.RemoveAt (Ingredients.IndexOf (ingredient.IngredientType));
 				IngredientSprites.RemoveAt (Ingredients.IndexOf (ingredient.IngredientType));
+				IngredientBacks [Ingredients.IndexOf (ingredient.IngredientType)].sprite = storage.IngredientBackSprites [1];
+				IngredientBacks.RemoveAt (Ingredients.IndexOf (ingredient.IngredientType));
 				HelperSprites.RemoveAt (Ingredients.IndexOf (ingredient.IngredientType));
 				Ingredients.Remove (ingredient.IngredientType);
+				if (Ingredients.Count == 0) {
+					OnDishReady (this);
+				}
 			}
 		}
 	}

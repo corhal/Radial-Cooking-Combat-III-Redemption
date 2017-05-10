@@ -23,5 +23,9 @@ public class Storage : MonoBehaviour {
 
 	public Sprite[] ArrowSprites;
 
+	public Sprite[] IngredientBackSprites;
+
+	public Sprite[] DishCountCircleSprites;
+
 	public Sprite MoneySprite;
 }

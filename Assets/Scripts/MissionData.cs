@@ -8,8 +8,9 @@ public class MissionData : MonoBehaviour {
 	public int MaxPointPerAction;
 	public int TrashIngredientsCount;
 
-	public float MinSpawnTimer;
-	public float MaxSpawnTimer;
+	public float InitialSpawnTimer;
+	//public float MinSpawnTimer;
+	//public float MaxSpawnTimer;
 
 	public int[] StarGoals;
 
@@ -26,8 +27,9 @@ public class MissionData : MonoBehaviour {
 		TrashIngredientsCount = missionData.TrashIngredientsCount;
 		MinPointsPerAction = missionData.MinPointsPerAction;
 		MaxPointPerAction = missionData.MaxPointPerAction;
-		MinSpawnTimer = missionData.MinSpawnTimer;
-		MaxSpawnTimer = missionData.MaxSpawnTimer;
+		InitialSpawnTimer = missionData.InitialSpawnTimer;
+		//MinSpawnTimer = missionData.MinSpawnTimer;
+		//MaxSpawnTimer = missionData.MaxSpawnTimer;
 		StarGoals = new int[missionData.StarGoals.Length];
 		missionData.StarGoals.CopyTo (StarGoals, 0);
 		IngredientCounts = new int[missionData.IngredientCounts.Length];

@@ -8,6 +8,8 @@ public class Ingredient : MonoBehaviour {
 	public int HP;
 	public bool Complex;
 
+	// public SpriteRenderer BlurSprite;
+
 	public string Side;
 
 	public bool Focused;
@@ -31,6 +33,7 @@ public class Ingredient : MonoBehaviour {
 
 	public List<int> Items;
 	public List<SpriteRenderer> ItemSprites;
+	public List<BoxCollider2D> ItemColliders;
 
 	public Slider mySlider;
 	public Slider[] ItemSliders;
@@ -53,13 +56,21 @@ public class Ingredient : MonoBehaviour {
 	float lifeTime;
 	float timer;
 
+	public float ColliderScaleFactor;
+
 	public bool Clicked;
 
+	Vector3 initialPosition;
+
 	void Awake() {		
+		ItemColliders = new List<BoxCollider2D> ();
 		mySprite = GetComponentInChildren<SpriteRenderer> ();
 		mySlider = GetComponentInChildren<Slider> ();
 		myBody = GetComponent<Rigidbody2D> ();
 		storage = GameObject.FindGameObjectWithTag ("Player").GetComponent<Storage> ();
+		foreach (var itemSprite in ItemSprites) {
+			ItemColliders.Add(itemSprite.gameObject.GetComponent<BoxCollider2D>());
+		}
 	}
 
 	void Start() {
@@ -151,9 +162,27 @@ public class Ingredient : MonoBehaviour {
 		if (GameController.instance.CurrentDish.Variations.Contains(Variation.doubleTrouble)) {
 			transform.localScale *= 0.8f;
 		}
+
+		initialPosition = transform.position;
+		RotationSpeed = GameController.instance.RotationSpeed;
+		ColliderScaleFactor = GameController.instance.ColliderScaleFactor;
+
+		for (int i = 0; i < Items.Count; i++) {
+			int index = ItemSprites.IndexOf(ItemColliders[i].gameObject.GetComponent<SpriteRenderer> ());
+			Debug.Log ("Index: " + index);
+			int item = Items [index];
+			int targetItem = GameController.instance.CurrentDish.IngredientItems [IngredientType];
+
+			if (item == targetItem) {
+				ItemColliders[i].size *= ColliderScaleFactor;
+			} else {
+				ItemColliders[i].size /= ColliderScaleFactor;
+			}
+		}
 	}
 
 	public void DestroyIngredient(bool terminated) {
+		IsBeingDestroyed = true;
 		if (MultiplierBlock.gameObject.activeSelf) {
 			MultiplierBlock.gameObject.SetActive(false);
 			ComboImage.gameObject.SetActive (false);
@@ -163,11 +192,12 @@ public class Ingredient : MonoBehaviour {
 		OnIngredientDestroyed (this, terminated);
 	}
 
-	void OnTriggerEnter2D(Collider2D other) {
-		
-	}
-
-	void OnMouseDown() {
+	public void Click () {
+		if (transform.position.x < initialPosition.x - 0.5f) {
+			return;
+		} else {
+			transform.position = initialPosition;
+		}
 		if (GameController.instance.FullPause && !Focused) {
 			return;
 		}
@@ -196,7 +226,22 @@ public class Ingredient : MonoBehaviour {
 		}
 	}
 
-	public void StartAction() {
+	void OnTriggerEnter2D(Collider2D other) {
+		
+	}
+
+	void OnMouseDown () {
+		
+	}
+
+	public bool IsBeingDestroyed;
+	void OnMouseUp () {
+		if (!IsBeingDestroyed) {
+			Click ();
+		}
+	}
+
+	public void StartAction () {
 		if (!GameController.instance.IsPaused) {
 			GameController.instance.NextComplex = false;
 			MultiplierBlock.gameObject.SetActive (true);
@@ -264,7 +309,7 @@ public class Ingredient : MonoBehaviour {
 		}
 		if (ShouldRotate) {
 			for (int i = 0; i < ItemsContainers.Length; i++) {
-				ItemsContainers [i].transform.RotateAround (transform.position, transform.forward, RotationSpeed * GameController.instance.TimeStep);
+				ItemsContainers [i].transform.RotateAround (mySprite.transform.position, mySprite.transform.forward, RotationSpeed * GameController.instance.TimeStep);
 			}
 			for (int i = 0; i < ItemSprites.Count; i++) {
 				ItemSprites [i].transform.Rotate (ItemSprites [i].transform.forward, -RotationSpeed * GameController.instance.TimeStep);
@@ -324,7 +369,7 @@ public class Ingredient : MonoBehaviour {
 	//string combo;
 	public void TakeDamage(int damage) {		
 		MyParticles.Play ();
-		//CurrentScore += 10.0f;
+		CurrentScore += 5.0f;
 		//GameController.instance.ComboCount++;
 		tapCount += damage;
 		TapCountLabel.text = tapCount.ToString ();
@@ -334,14 +379,14 @@ public class Ingredient : MonoBehaviour {
 		}
 		switch (tapCount) {
 		case 1:
-			comboCount = 0;
+			//comboCount = 0;
 			ComboImage.color = new Color (1.0f, 1.0f, 1.0f, 0.0f);
 			//combo = " ";
 			//AdditionalScoreLabel.gameObject.transform.localScale = new Vector3 (1.5f, 1.5f, 1.5f);
 			break;
 		case 4:
 			//combo = "Good!";
-			comboCount = 1;
+			//comboCount = 1;
 			//ComboImage.gameObject.SetActive (true);
 			ComboImage.sprite = storage.ComboSprites [0];
 			ComboImage.color = new Color (1.0f, 1.0f, 1.0f, 1.0f);
@@ -351,7 +396,7 @@ public class Ingredient : MonoBehaviour {
 			break;
 		case 8:
 			//combo = "Great!";
-			comboCount = 2;
+			//comboCount = 2;
 			ComboImage.sprite = storage.ComboSprites [1];
 			ComboImage.SetNativeSize ();
 			ComboImage.gameObject.transform.localScale = new Vector3 (0.35f, 0.35f, 0.35f);
@@ -359,7 +404,7 @@ public class Ingredient : MonoBehaviour {
 			break;
 		case 12:
 			//combo = "Perfect!";
-			comboCount = 3;
+			//comboCount = 3;
 			ComboImage.sprite = storage.ComboSprites [2];
 			ComboImage.SetNativeSize ();
 			ComboImage.gameObject.transform.localScale = new Vector3 (0.4f, 0.4f, 0.4f);
@@ -367,14 +412,14 @@ public class Ingredient : MonoBehaviour {
 			break;
 		case 16:
 			//combo = "Amazing!";
-			comboCount = 4;
+			//comboCount = 4;
 			ComboImage.sprite = storage.ComboSprites [3];
 			ComboImage.SetNativeSize ();
 			ComboImage.gameObject.transform.localScale = new Vector3 (0.45f, 0.45f, 0.45f);
 			//AdditionalScoreLabel.gameObject.transform.localScale = new Vector3 (1.4f, 1.4f, 1.4f);
 			break;
 		case 20:
-			comboCount = 5;
+			//comboCount = 5;
 			//combo = "Legendary!";
 			ComboImage.sprite = storage.ComboSprites [4];
 			ComboImage.SetNativeSize ();
@@ -384,7 +429,7 @@ public class Ingredient : MonoBehaviour {
 		default:
 			break;
 		}
-		AdditionalScoreLabel.text = "x" + comboCount;
+		AdditionalScoreLabel.text = "" + CurrentScore;
 		//GameController.instance.ShowCombo (this);
 		HP--;
 	}

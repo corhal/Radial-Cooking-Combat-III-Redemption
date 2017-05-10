@@ -6,6 +6,20 @@ using UnityEngine.SceneManagement;
 
 public class GameController : MonoBehaviour {
 
+	public Minigame[] Minigames;
+
+	float initialSpawnTimer;
+
+	public float InitialRotationSpeed;
+	public float RotationSpeed;
+	public float InitialColliderScaleFactor;
+	public float ColliderScaleFactor;
+
+	public Image[] StarBacks;
+
+	public Image[] DishCountCircles;
+	public Image[] DishCountTicks;
+
 	public GameObject[] BoosterButtons;
 
 	public ParticleSystem GoldParticles;
@@ -25,6 +39,8 @@ public class GameController : MonoBehaviour {
 	public bool IsFirst = true;
 	public bool IsSecond = false;
 
+	public Slider ComboSlider;
+
 	public float GoalScore;
 	public float Score;
 
@@ -41,6 +57,7 @@ public class GameController : MonoBehaviour {
 	public string[] ComboKeys;
 	public List<string> ComboKeysToNuke;
 	public int ComboCount;
+	public int MaxComboCount;
 	public int CorrectCount;
 	public float  ComboFadeTimer;
 	public float ComboFadeTime;
@@ -112,6 +129,10 @@ public class GameController : MonoBehaviour {
 
 	public ParticleSystem WinterParticles;
 
+	float spawnTimer;
+	//float minSpawnTimer;
+	//float maxSpawnTimer;
+
 	public float TimeStep { 
 		get {
 			if (BoostersActive.ContainsKey(Booster.winter) && BoostersActive[Booster.winter] == true) {
@@ -168,6 +189,11 @@ public class GameController : MonoBehaviour {
 				BoosterButtons [i].SetActive (false);
 			}
 		}
+
+		initialSpawnTimer = Player.instance.MyMission.InitialSpawnTimer;
+		spawnTimer = initialSpawnTimer;
+		ComboSlider.maxValue = MaxComboCount;
+		ComboSlider.value = ComboCount;
 	}
 
 	public void ActivateBoosterByIndex (int index) {
@@ -188,15 +214,15 @@ public class GameController : MonoBehaviour {
 	}
 
 	void Flyer_OnFlyerArrived (GameObject myObj) {
-		//if (myObj.GetComponentInChildren<Text>() != null) {
-		    ComboCount += myObj.GetComponent<Flyer> ().TapCount;
-			AddScore (myObj.GetComponent<Flyer> ().SavedScore);
-		//}
+		AddScore (myObj.GetComponent<Flyer> ().SavedScore);
+
 		Destroy (myObj);
 	}
 
 	void Dish_OnDishInitialized (Dish dish)	{		
 		ResetDish ();
+		totalIngredients = dish.totalIngredients;
+		currentIngredients = totalIngredients;
 	}
 
 	public void ResetDish() {		
@@ -224,6 +250,9 @@ public class GameController : MonoBehaviour {
 		lastIngredient = true; // ?
 	}
 
+	int totalIngredients;
+	int currentIngredients;
+
 	void Start() {			
 		StarGoals = new int[Player.instance.MyMission.StarGoals.Length];
 		Player.instance.MyMission.StarGoals.CopyTo (StarGoals, 0);
@@ -243,15 +272,21 @@ public class GameController : MonoBehaviour {
 		for (int i = 0; i < StarImages.Length; i++) {	
 			StarImages [i].rectTransform.anchoredPosition = new Vector2 (155.0f * (float) StarGoals[i] / (float) StarGoals[2] - 172.0f * (1 - (float) StarGoals[i] / (float) StarGoals[2]) - 15.0f, 460.0f);
 			StarParticles [i].transform.position = StarImages [i].transform.position;
+			StarBacks [i].transform.position = new Vector3 (StarImages [i].transform.position.x, StarBacks [i].transform.position.y, StarBacks [i].transform.position.z);
 		}
 		if (CurrentDish.Variations.Contains(Variation.memory)) {
-			Debug.Log ("Variation is memory");
 			CurrentDish.initTimer = 6.0f;
 			timer = 0.0f;
 			SpawnTime = CurrentDish.initTimer;
 		} else {
 			SpawnTime = 1.75f;
 		}
+	}
+
+	IEnumerator ShowStarBack (int index) {
+		StarBacks [index].gameObject.SetActive (true);
+		yield return new WaitForSeconds (0.5f);
+		StarBacks [index].gameObject.SetActive (false);
 	}
 
 	public void FirstStep(Ingredient ingredient) {	
@@ -264,12 +299,15 @@ public class GameController : MonoBehaviour {
 		}
 
 		AddScore (ingredient.CurrentScore);
-		SpawnTime = Random.Range (Player.instance.MyMission.MinSpawnTimer + 0.5f, Player.instance.MyMission.MaxSpawnTimer + 0.5f); 
+		SpawnTime = spawnTimer /*+ 10.0f*/; 
 		ingredient.SetLifeTime(SpawnTime);
 		ingredient.MaxScore = Random.Range (Player.instance.MyMission.MinPointsPerAction, Player.instance.MyMission.MaxPointPerAction);
 		ingredient.CurrentScore = ingredient.MaxScore;
 		timer = 0.0f;
 		ingredient.mySlider.gameObject.SetActive (false);
+		ingredient.mySprite.transform.position = new Vector3 (ingredient.mySprite.transform.position.x, ingredient.mySprite.transform.position.y - 0.35f, ingredient.mySprite.transform.position.z);
+		ingredient.mySprite.color = new Color (1.0f, 1.0f, 1.0f, 0.5f);
+		//ingredient.BlurSprite.gameObject.SetActive (true);
 		int count = (!CurrentDish.Variations.Contains(Variation.revolver)) ? 1 : 2;
 		for (int i = 0; i < count; i++) {
 			ingredient.ItemsContainers[i].SetActive (true);
@@ -281,12 +319,13 @@ public class GameController : MonoBehaviour {
 	}
 
 	void AddScore(float score) {
-		Lerper.AddPoints(Score, score * ComboCount);
-		Score += score * ComboCount;
+		Lerper.AddPoints(Score, score);
+		Score += score;
 		for (int i = 0; i < StarGoals.Length; i++) {
 			if (StarImages[i].sprite != storage.StarSprites[1] && Score >= StarGoals[i]) {
 				StarImages [i].sprite = storage.StarSprites [1];
 				StarParticles [i].Play ();
+				StartCoroutine(ShowStarBack (i));
 				starCount = i + 1;
 			}
 		}
@@ -325,7 +364,7 @@ public class GameController : MonoBehaviour {
 		Shading.gameObject.SetActive (true);
 		NextComplex = false;
 		AddScore (ingredient.CurrentScore);
-		SpawnTime = Random.Range (Player.instance.MyMission.MinSpawnTimer + 0.5f, Player.instance.MyMission.MaxSpawnTimer + 0.5f);
+		SpawnTime = spawnTimer + 0.5f;
 		ingredient.SetLifeTime(SpawnTime);
 		ingredient.MaxScore = Random.Range (Player.instance.MyMission.MinPointsPerAction, Player.instance.MyMission.MaxPointPerAction);
 		ingredient.CurrentScore = 0.0f;
@@ -348,6 +387,8 @@ public class GameController : MonoBehaviour {
 
 	void MoveIngredient(GameObject ingredient) {
 		HelperLabel.gameObject.SetActive (false);
+		//ingredient.GetComponentInChildren<Ingredient> ().BlurSprite.gameObject.SetActive (false);
+		ingredient.GetComponentInChildren<Ingredient> ().mySprite.color = new Color(1.0f, 1.0f, 1.0f, 1.0f);
 		Shading.gameObject.SetActive (false);
 		IsPaused = false;
 		Destroy(ingredient.GetComponent<Collider2D>());
@@ -362,7 +403,8 @@ public class GameController : MonoBehaviour {
 	void ArriveIngredient(GameObject ingredient) {			
 		CurrentDish.IngredientSprites [CurrentDish.Ingredients.IndexOf (ingredient.GetComponent<Ingredient> ().IngredientType)].gameObject.GetComponent<Animation> ().Play ();
 		CurrentDish.AddCorrect (ingredient.GetComponent<Ingredient>());
-
+		currentIngredients--;
+		RaiseDifficulty ();
 		if (CurrentDish.DishIndex == 1 && CurrentDish.collectedIngredients == 1) {			
 			NextComplex = true;
 		}
@@ -397,7 +439,6 @@ public class GameController : MonoBehaviour {
 	void UseCombo() {
 		ComboLabel.text = "x0";
 		CorrectCount = 0;
-		ComboCount = 1;
 	}
 
 	public void AddIncorrect(Ingredient ingredient) {
@@ -405,14 +446,16 @@ public class GameController : MonoBehaviour {
 		IsPaused = false;
 		RedTint.GetComponent<Animation> ().Play();
 		Mistakes--;
+		ResetDifficulty ();
 		Player.instance.HasWon = false;
 
 		UseCombo();
 
 		for (int i = 0; i < Hearts.Length; i++) {
-			if (Hearts[i].sprite != storage.HeartSprites[0]) {				
+			if (Hearts[i].gameObject.activeSelf) {				
 				HeartParticles [i].Play ();
-				Hearts [i].sprite = storage.HeartSprites [0];
+				//Hearts [i].sprite = storage.HeartSprites [0];
+				Hearts [i].gameObject.SetActive (false);
 				break;
 			}
 		}
@@ -468,13 +511,14 @@ public class GameController : MonoBehaviour {
 			longDelay = false;
 		} else if (!terminated && CurrentDish.Ingredients.Contains(ingredient.IngredientType)) {	// Не таймаут, кликнули по правильному
 			if (ingredient.Complex && ingredient.Action) {
+				ResetDifficulty ();
 				ingredient.BonusGameLabel.gameObject.SetActive (false);
 				GameObject bonusScoreObj = Instantiate (BonusScorePrefab, ingredient.AdditionalScoreLabel.transform.position, 
 					BonusScorePrefab.transform.rotation) as GameObject;
 				Flyer flyer = bonusScoreObj.GetComponent<Flyer> ();
 				flyer.DestinationPosition = ScoreLabel.gameObject.transform.position;
 				flyer.SavedScore = 0; 
-				flyer.TapCount = ingredient.comboCount;
+				flyer.TapCount = 0;
 			}
 			MoveIngredient (ingredient.gameObject);
 			SendScore (ingredient);
@@ -491,6 +535,22 @@ public class GameController : MonoBehaviour {
 		if (FullPause) {
 			FullPause = false;
 		}
+	}
+
+	public void RaiseDifficulty () {
+		ComboCount++;
+		ComboSlider.value = ComboCount;
+		spawnTimer = (spawnTimer * 0.8f < 1.0f) ? 1.0f : spawnTimer * 0.8f;
+		RotationSpeed *= 1.2f;
+		//ColliderScaleFactor *= 0.9f;
+	}
+
+	public void ResetDifficulty () {
+		ComboCount = 0;
+		ComboSlider.value = ComboCount;
+		spawnTimer = initialSpawnTimer;
+		RotationSpeed = InitialRotationSpeed;
+		//ColliderScaleFactor = InitialColliderScaleFactor;
 	}
 
 	void Update() {		
@@ -544,12 +604,38 @@ public class GameController : MonoBehaviour {
 			blast.GetComponentInChildren<ParticleSystem> ().startColor = Color.blue;
 			lastIngredient = false;
 			dishCount++;
-			if (dishCount < 3) {
-				CurrentDish = Dishes [dishCount];
+			if (CurrentDish.Variations.Contains(Variation.switcheroo)) {
+				int previousDishIndex = CurrentDish.DishIndex - 1;
+				if (previousDishIndex == -1) {
+					previousDishIndex = 2;
+				}
+				if (CurrentDish.DishIndex == 2) {
+					CurrentDish = Dishes [0];
+					if (CurrentDish.IsReady) {
+						CurrentDish = Dishes [1];
+					}
+					if (CurrentDish.IsReady) {
+						CurrentDish = Dishes [2];
+					}
+				} else {
+					CurrentDish = Dishes [CurrentDish.DishIndex + 1];
+				}
 				CurrentDish.SetActive (true);				
-				Dishes [dishCount - 1].SetActive (false);								
+				Dishes [previousDishIndex].SetActive (false);		
+				DishCountCircles [previousDishIndex].sprite = storage.DishCountCircleSprites [1];
+				DishCountCircles [CurrentDish.DishIndex].gameObject.SetActive (true);
+				DishCountTicks [previousDishIndex].gameObject.SetActive (true);
 			} else {
-				CurrentDish.SetActive (false);
+				if (dishCount < 3) {
+					CurrentDish = Dishes [dishCount];
+					CurrentDish.SetActive (true);				
+					Dishes [dishCount - 1].SetActive (false);		
+					DishCountCircles [dishCount - 1].sprite = storage.DishCountCircleSprites [1];
+					DishCountCircles [dishCount].gameObject.SetActive (true);
+					DishCountTicks [dishCount - 1].gameObject.SetActive (true);
+				} else {
+					CurrentDish.SetActive (false);
+				}
 			}
 			ResetDish ();
 			if (CurrentDish.Variations.Contains(Variation.memory)) {
@@ -591,7 +677,7 @@ public class GameController : MonoBehaviour {
 		}
 	}
 
-	void SpawnIngredient () {		
+	void SpawnIngredient () {	
 		int count = (!CurrentDish.Variations.Contains(Variation.doubleTrouble)) ? 1 : 2;
 
 		Transform[] SpawnTransforms = new Transform[count];
@@ -603,7 +689,7 @@ public class GameController : MonoBehaviour {
 		}
 
 		for (int i = 0; i < count; i++) {
-			SpawnTime = Random.Range (Player.instance.MyMission.MinSpawnTimer, Player.instance.MyMission.MaxSpawnTimer);
+			SpawnTime = spawnTimer;
 			timer = 0.0f;
 			Random.InitState (Random.Range(0, 40000));
 
@@ -636,12 +722,20 @@ public class GameController : MonoBehaviour {
 			ingredient.mySprite.sprite = storage.IngredientSprites[ingredient.IngredientType];
 
 			spawnedIngredients.Add (ingredient);
-			if (CurrentDish.Minigames.ContainsKey (ingredient.IngredientType) && CurrentDish.Minigames[ingredient.IngredientType] != Minigame.None) {
+
+			if (ComboCount == MaxComboCount) {
+				ingredient.Complex = true;
+				ingredient.Action = true;
+				ingredient.Interaction = Minigames [Random.Range (0, Minigames.Length)]; // CurrentDish.Minigames [ingredient.IngredientType];
+				NextComplex = false;
+			}
+
+			/*if (CurrentDish.Minigames.ContainsKey (ingredient.IngredientType) && CurrentDish.Minigames[ingredient.IngredientType] != Minigame.None) {
 				ingredient.Complex = true;
 				ingredient.Action = true;
 				ingredient.Interaction = CurrentDish.Minigames [ingredient.IngredientType];
 				NextComplex = false;
-			} else if (CurrentDish.IngredientItems.ContainsKey (ingredient.IngredientType) && CurrentDish.IngredientItems[ingredient.IngredientType] != -1) {
+			}*/ else if (CurrentDish.IngredientItems.ContainsKey (ingredient.IngredientType) && CurrentDish.IngredientItems[ingredient.IngredientType] != -1) {
 				ingredient.Complex = true;
 				ingredient.Item = true;
 			}
@@ -653,7 +747,7 @@ public class GameController : MonoBehaviour {
 					ingredient.Side = "right";
 				}
 				for (int j = 0; j < ingredient.ItemsContainers.Length; j++) {
-					ingredient.ItemsContainers [j].transform.RotateAround (ingredient.transform.position, ingredient.transform.forward, 90.0f * (1 - 2 * i)); // costyll
+					ingredient.ItemsContainers [j].transform.RotateAround (ingredient.mySprite.transform.position, ingredient.mySprite.transform.forward, 90.0f * (1 - 2 * i)); // costyll
 				}
 				for (int j = 0; j < ingredient.ItemSprites.Count; j++) {
 					ingredient.ItemSprites [j].transform.Rotate (ingredient.ItemSprites [j].transform.forward, -90.0f * (1 - 2 * i));

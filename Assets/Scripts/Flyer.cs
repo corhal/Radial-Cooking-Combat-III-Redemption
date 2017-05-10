@@ -23,13 +23,14 @@ public class Flyer : MonoBehaviour {
 
 	void Start() {
 		interpolator = 0.0f;
-		if (myText != null) {
+		myText.gameObject.SetActive (false);
+		/*if (myText != null) {
 			if (!ShowScore) {
 				myText.text = "x" + TapCount;
 			} else {
 				myText.text = "+" + SavedScore * GameController.instance.ComboCount;
 			}
-		}
+		}*/
 	}
 
 	void Update() {		
